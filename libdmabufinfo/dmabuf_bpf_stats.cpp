@@ -16,6 +16,7 @@
 
 #include "dmabuf_bpf_stats.h"
 
+#include <cerrno>
 #include <charconv>
 #include <fstream>
 #include <string>
@@ -35,10 +36,14 @@ enum Field {inode, size, name, exporter, COUNT};
 bool GetDmabufBPFStats(DmabufPerBufferStats& stats) {
     constexpr const char BPF_DMABUF_ITER_PATH[] = "/sys/fs/bpf/dmabuf/prog_dmabufIter_iter_dmabuf";
 
+    errno = 0;
     std::ifstream in(BPF_DMABUF_ITER_PATH);
 
     if (!in) {
-        LOG(ERROR) << "Unable to access " << BPF_DMABUF_ITER_PATH;
+        // Older kernels use sysfs accounting instead of a BPF iterator.
+        if (errno != ENOENT) {
+            PLOG(ERROR) << "Unable to access " << BPF_DMABUF_ITER_PATH;
+        }
         return false;
     }
 
